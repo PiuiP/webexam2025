@@ -1,0 +1,30 @@
+/* Общие стили */
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  line-height: 1.6;
+}
+
+/* Акцентная кнопка */
+.btn-accent {
+  background-color: #2196f3;
+  border-color: #2196f3;
+}
+.btn-accent:hover {
+  background-color: #1976d2;
+  border-color: #1976d2;
+}
+
+/* Карточки курсов */
+.courses-section .border {
+  transition: box-shadow 0.3s;
+}
+.courses-section .border:hover {
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+/* Футер */
+footer {
+  background-color: #f8f9fa;
+  padding: 2rem 0;
+  margin-top: 3rem;
+}
