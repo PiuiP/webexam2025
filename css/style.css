@@ -4,27 +4,82 @@ body {
   line-height: 1.6;
 }
 
-/* Акцентная кнопка */
-.btn-accent {
-  background-color: #2196f3;
-  border-color: #2196f3;
+/* Контейнеры секций */
+.courses-section, .tutors-section {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid #eee;
 }
-.btn-accent:hover {
-  background-color: #1976d2;
-  border-color: #1976d2;
+
+/* Заголовок секции */
+.section-header h2 {
+  font-weight: 700;
+  color: #2c3e50;
+}
+.section-header p {
+  color: #7f8c8d;
+}
+
+/* Форма поиска */
+.search-form {
+  background: #f9f9f9;
+  padding: 1.5rem;
+  border-radius: 10px;
+  margin-bottom: 2rem;
 }
 
 /* Карточки курсов */
-.courses-section .border {
-  transition: box-shadow 0.3s;
+.courses-section .course-card {
+  background: white;
+  border: 1px solid #eaeaea;
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  transition: all 0.2s;
 }
-.courses-section .border:hover {
-  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+.courses-section .course-card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+}
+.courses-section .course-card h5 {
+  margin-bottom: 0.5rem;
+  color: #2c3e50;
+}
+.courses-section .course-card p {
+  margin-bottom: 0.75rem;
+  color: #555;
+}
+
+/* Таблица репетиторов */
+.tutors-table {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+.tutors-table thead th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+}
+.tutors-table tbody tr:hover {
+  background-color: #f8f9ff !important;
+}
+
+/* Акцентная кнопка */
+.btn-accent {
+  background-color: #3498db;
+  border-color: #3498db;
+}
+.btn-accent:hover {
+  background-color: #2980b9;
+  border-color: #2980b9;
 }
 
 /* Футер */
 footer {
   background-color: #f8f9fa;
-  padding: 2rem 0;
+  padding: 2.5rem 0 1.5rem;
   margin-top: 3rem;
+  border-top: 1px solid #eee;
 }

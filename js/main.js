@@ -6,12 +6,13 @@ let allCourses = []; //Все полученные курсы
 let filteredCourses = []; //Курсы после фильтра
 let currentPage = 1; //Тек страница
 const ITEMS_PER_PAGE = 3; //Сколько показываем курсов на 1 страниице (с 3 более симпатично)
-
+let selectedCourseId = null;
 // Глоб перем для тьюторов
 let allTutors = [];
 let filteredTutors = [];
 let currentTutorPage = 1;
 const TUTOR_ITEMS_PER_PAGE = 3;
+
 
 // Показ уведомления
 function showNotification(message, type = 'info') {
@@ -63,7 +64,7 @@ function renderCourses() {
   }
 
   container.innerHTML = pageCourses.map(course => `
-    <div class="border rounded p-3 mb-3">
+    <div class="course-card border rounded p-3 mb-3">
       <h5>${course.name}</h5>
       <p class="text-muted">${course.description}</p>
       <p><strong>Преподаватель:</strong> ${course.teacher}</p>
@@ -140,11 +141,72 @@ function searchCourses() {
   renderPagination();
 }
 
-// Открытие модального окна (заглушка — можно расширить позже)
+// Открытие модального окна
 function openOrderModal(courseId) {
   const course = allCourses.find(c => c.id === courseId);
   if (!course) return;
-  alert(`Заявка на курс "${course.name}" — функционал будет реализован позже.`);
+  selectedCourseId = courseId;
+  // 1. Заполняем информацию о курсе
+  document.getElementById('modal-course-info').innerHTML = `
+    <strong>${course.name}</strong><br>
+    Преподаватель: ${course.teacher}<br>
+    Уровень: ${course.level}
+  `;
+
+  // 2. Определяем язык курса по названию
+  const courseNameLower = course.name.toLowerCase();
+  let courseLanguage = null;
+  if (courseNameLower.includes('английск') || courseNameLower.includes('english')) courseLanguage = 'English';
+  else if (courseNameLower.includes('немецк') || courseNameLower.includes('german')) courseLanguage = 'German';
+  else if (courseNameLower.includes('французск') || courseNameLower.includes('french')) courseLanguage = 'French';
+  else if (courseNameLower.includes('испанск') || courseNameLower.includes('spanish')) courseLanguage = 'Spanish';
+  else if (courseNameLower.includes('китайск') || courseNameLower.includes('chinese')) courseLanguage = 'Chinese';
+  else if (courseNameLower.includes('японск') || courseNameLower.includes('japanese')) courseLanguage = 'Japanese';
+
+  // 3. Фильтруем репетиторов по языку
+  let relevantTutors = allTutors;
+  if (courseLanguage) {
+    relevantTutors = allTutors.filter(tutor =>
+      Array.isArray(tutor.languages_offered) && tutor.languages_offered.includes(courseLanguage)
+    );
+  }
+
+  // 4. Обновляем таблицу репетиторов (временно — можно вынести в отдельный блок)
+  const tutorList = document.getElementById('tutors-list');
+  if (tutorList && relevantTutors.length > 0) {
+    const firstTutor = relevantTutors[0];
+    document.getElementById('modal-tutor-info').innerHTML = `
+      Имя: ${firstTutor.name}<br>
+      Языки: ${(firstTutor.languages_offered || []).join(', ')}<br>
+      Опыт: ${firstTutor.work_experience} лет
+    `;
+  } else {
+    document.getElementById('modal-tutor-info').innerHTML = '<span class="text-muted">Нет подходящих репетиторов</span>';
+  }
+
+  // 5. Заполняем даты из start_dates
+  const dateSelect = document.getElementById('order-date');
+  dateSelect.innerHTML = '<option value="">Выберите дату</option>';
+  const uniqueDates = [...new Set(course.start_dates.map(dt => dt.split('T')[0]))].sort();
+  uniqueDates.forEach(date => {
+    const option = document.createElement('option');
+    option.value = date;
+    option.textContent = new Date(date).toLocaleDateString('ru-RU');
+    dateSelect.appendChild(option);
+  });
+
+  // 6. Сбрасываем время и студентов
+  document.getElementById('order-time').innerHTML = '<option value="">Сначала выберите дату</option>';
+  document.getElementById('order-time').disabled = true;
+  document.getElementById('order-students').value = 1;
+
+  // 7. Обновляем продолжительность
+  document.getElementById('order-duration-info').textContent =
+    `${course.total_length} недель (${course.week_length} ч/нед)`;
+
+  // 8. Открываем модальное окно
+  const modal = new bootstrap.Modal(document.getElementById('orderModal'));
+  modal.show();
 }
 
 
@@ -222,10 +284,10 @@ function renderTutors() {
     const languagesStr = Array.isArray(tutor.languages_offered) 
       ? tutor.languages_offered.join(', ') 
       : '—';
-    
+    //Для фото - заглушка
     return `
       <tr>
-        <td><img src="https://via.placeholder.com/50" alt="Фото" class="rounded"></td>
+        <td><img src="https://via.placeholder.com/50" alt="Фото" class="rounded"></td> 
         <td>${tutor.name}</td>
         <td>${tutor.language_level}</td>
         <td>${languagesStr}</td>
@@ -256,7 +318,7 @@ function searchTutors() {
        tutor.languages_offered.includes(language));
     
     // Проверка по уровню
-    const matchesLevel = !level || tutor.language_level === level;
+    const matchesLevel = !level || tutor.language_level.toLowerCase() === level;//Приводим к нижнему регистру, чтобы корректно работало
     
     // Проверка по опыту
     const matchesExp = (tutor.work_experience || 0) >= minExperience;
@@ -326,7 +388,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadCourses();
   }
 
-  // Репетиторы ← ОСНОВНОЕ ИСПРАВЛЕНИЕ
+  // Репетиторы
   if (document.getElementById('tutors-list')) {
     loadTutors();
   }
@@ -345,4 +407,34 @@ document.addEventListener('DOMContentLoaded', () => {
   if (langSelect) langSelect.addEventListener('change', searchTutors);
   if (tutorLevelSelect) tutorLevelSelect.addEventListener('change', searchTutors);
   if (expInput) expInput.addEventListener('input', searchTutors);
+  
+  const dateSelect = document.getElementById('order-date');
+  if (dateSelect) {
+    dateSelect.addEventListener('change', function () {
+      const selectedDate = this.value;
+      const timeSelect = document.getElementById('order-time');
+      const course = allCourses.find(c => c.id === selectedCourseId);
+
+      if (!selectedDate || !course) {
+        timeSelect.innerHTML = '<option value="">Сначала выберите дату</option>';
+        timeSelect.disabled = true;
+        return;
+      }
+
+      const times = course.start_dates
+        .filter(dt => dt.startsWith(selectedDate))
+        .map(dt => dt.split('T')[1].substring(0, 5))
+        .filter((v, i, a) => a.indexOf(v) === i)
+        .sort();
+
+      timeSelect.innerHTML = '<option value="">Выберите время</option>';
+      times.forEach(time => {
+        const opt = document.createElement('option');
+        opt.value = time;
+        opt.textContent = time;
+        timeSelect.appendChild(opt);
+      });
+      timeSelect.disabled = false;
+    });
+  }
 });
