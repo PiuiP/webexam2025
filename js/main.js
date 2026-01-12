@@ -374,11 +374,24 @@ function changeTutorPage(page) {
 }
 
 
-// Запрос репетитора (заглушка)
+// Запрос репетитора
 function requestTutor(tutorId) {
   const tutor = allTutors.find(t => t.id === tutorId);
   if (!tutor) return;
-  alert(`Запрос на сеанс с ${tutor.name} — будет реализован позже.`);
+
+  // Заполняем данные в модальном окне #tutorRequestModal
+  document.getElementById('request-tutor-id').value = tutorId;
+  document.getElementById('request-tutor-name').textContent = 
+    `Репетитор: ${tutor.name} (${(tutor.languages_offered || []).join(', ')})`;
+
+  // Очищаем форму
+  document.getElementById('request-name').value = '';
+  document.getElementById('request-email').value = '';
+  document.getElementById('request-message').value = '';
+
+  // Открываем модалку
+  const modal = new bootstrap.Modal(document.getElementById('tutorRequestModal'));
+  modal.show();
 }
 
 // Инициализация при загрузке страницы
@@ -407,7 +420,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (langSelect) langSelect.addEventListener('change', searchTutors);
   if (tutorLevelSelect) tutorLevelSelect.addEventListener('change', searchTutors);
   if (expInput) expInput.addEventListener('input', searchTutors);
-  
+
   const dateSelect = document.getElementById('order-date');
   if (dateSelect) {
     dateSelect.addEventListener('change', function () {
@@ -437,4 +450,229 @@ document.addEventListener('DOMContentLoaded', () => {
       timeSelect.disabled = false;
     });
   }
+  document.getElementById('order-form')?.addEventListener('change', () => {
+    if (selectedCourseId) calculateOrderPrice(selectedCourseId);
+  });
 });
+
+
+
+
+/////СЧИТАЕМ/////
+
+
+
+function calculateOrderPrice(courseId) {
+  const course = allCourses.find(c => c.id === courseId);
+  if (!course) return 0;
+
+  const students = parseInt(document.getElementById('order-students').value) || 1;
+  const selectedDate = document.getElementById('order-date').value;
+  const selectedTime = document.getElementById('order-time').value;
+
+  // Базовые параметры
+  const courseFeePerHour = course.course_fee_per_hour;
+  const totalWeeks = course.total_length;
+  const hoursPerWeek = course.week_length;
+  const totalHours = totalWeeks * hoursPerWeek;
+
+  // Множитель выходных
+  let isWeekendOrHoliday = 1;
+  if (selectedDate) {
+    const date = new Date(selectedDate);
+    const day = date.getDay(); // 0 = воскресенье, 6 = суббота
+    if (day === 0 || day === 6) isWeekendOrHoliday = 1.5;
+  }
+
+  // Доплаты за время
+  let morningSurcharge = 0;
+  let eveningSurcharge = 0;
+  if (selectedTime) {
+    const hour = parseInt(selectedTime.split(':')[0]);
+    if (hour >= 9 && hour < 12) morningSurcharge = 400;
+    if (hour >= 18 && hour < 20) eveningSurcharge = 1000;
+  }
+
+  // Базовая стоимость
+  let base = (courseFeePerHour * totalHours * isWeekendOrHoliday) + morningSurcharge + eveningSurcharge;
+  let total = base * students;
+
+  // === Автоматические скидки/надбавки ===
+  let earlyRegistration = false;
+  let groupEnrollment = false;
+  let intensiveCourse = false;
+
+  // 1. Ранняя регистрация (≥30 дней)
+  if (selectedDate) {
+    const orderDate = new Date(selectedDate);
+    const today = new Date();
+    const diffDays = Math.ceil((orderDate - today) / (1000 * 60 * 60 * 24));
+    if (diffDays >= 30) earlyRegistration = true;
+  }
+
+  // 2. Групповая запись (≥5 студентов)
+  if (students >= 5) groupEnrollment = true;
+
+  // 3. Интенсивный курс (≥5 часов/нед)
+  if (hoursPerWeek >= 5) intensiveCourse = true;
+
+  // Применяем автоматику
+  if (earlyRegistration) total *= 0.9;   // -10%
+  if (groupEnrollment) total *= 0.85;   // -15%
+  if (intensiveCourse) total *= 1.2;    // +20%
+
+  // === Пользовательские опции ===
+  const supplementary = document.getElementById('opt-supplementary')?.checked || false;
+  const personalized = document.getElementById('opt-personalized')?.checked || false;
+  const excursions = document.getElementById('opt-excursions')?.checked || false;
+  const assessment = document.getElementById('opt-assessment')?.checked || false;
+  const interactive = document.getElementById('opt-interactive')?.checked || false;
+
+  if (supplementary) total += 2000 * students;
+  if (personalized) total += 1500 * totalWeeks;
+  if (excursions) total *= 1.25;
+  if (assessment) total += 300;
+  if (interactive) total *= 1.5;
+
+  // Обновляем UI
+  document.getElementById('price-base').textContent = `${(courseFeePerHour * totalHours).toLocaleString()} руб`;
+  document.getElementById('price-tutor').textContent = 
+    (isWeekendOrHoliday > 1 ? '×1.5 (выходной)' : '') +
+    (morningSurcharge ? ' +400₽ (утро)' : '') +
+    (eveningSurcharge ? ' +1000₽ (вечер)' : '') || '—';
+
+  // Скидки
+  const discountsRow = document.getElementById('price-discounts-row');
+  const discountsEl = document.getElementById('price-discounts');
+  if (earlyRegistration || groupEnrollment) {
+    discountsRow.style.display = 'flex';
+    discountsEl.textContent = [
+      earlyRegistration ? '-10% ранняя' : '',
+      groupEnrollment ? '-15% группа' : ''
+    ].filter(Boolean).join(', ');
+  } else {
+    discountsRow.style.display = 'none';
+  }
+
+  // Надбавки
+  const surchargesRow = document.getElementById('price-surcharges-row');
+  const surchargesEl = document.getElementById('price-surcharges');
+  const surcharges = [];
+  if (intensiveCourse) surcharges.push('+20% интенсив');
+  if (supplementary) surcharges.push(`+${(2000*students).toLocaleString()} материалы`);
+  if (personalized) surcharges.push(`+${(1500*totalWeeks).toLocaleString()} инд.занятия`);
+  if (excursions) surcharges.push('+25% экскурсии');
+  if (assessment) surcharges.push('+300 оценка');
+  if (interactive) surcharges.push('+50% платформа');
+
+  if (surcharges.length > 0) {
+    surchargesRow.style.display = 'flex';
+    surchargesEl.textContent = surcharges.join(', ');
+  } else {
+    surchargesRow.style.display = 'none';
+  }
+
+  document.getElementById('price-total').textContent = `${Math.round(total).toLocaleString()} руб`;
+  return Math.round(total);
+}
+
+
+////ОТПРАВККА//////
+
+
+async function submitOrder() {
+  const courseId = selectedCourseId;
+  const course = allCourses.find(c => c.id === courseId);
+  if (!course) {
+    showNotification('Курс не выбран', 'danger');
+    return;
+  }
+
+  const date = document.getElementById('order-date').value;
+  const time = document.getElementById('order-time').value;
+  const students = parseInt(document.getElementById('order-students').value) || 1;
+
+  if (!date || !time) {
+    showNotification('Выберите дату и время', 'warning');
+    return;
+  }
+
+  // Рассчитываем финальную цену
+  const price = calculateOrderPrice(courseId);
+
+  // Определяем автоматические флаги
+  let earlyRegistration = false;
+  if (date) {
+    const orderDate = new Date(date);
+    const today = new Date();
+    const diffDays = Math.ceil((orderDate - today) / (1000 * 60 * 60 * 24));
+    earlyRegistration = diffDays >= 30;
+  }
+
+  // Формируем данные для API
+  const orderData = {
+    course_id: courseId,
+    date_start: date,
+    time_start: time,
+    duration: course.total_length,
+    persons: students,
+    price: price,
+
+    // Автоматические опции
+    early_registration: earlyRegistration,
+    group_enrollment: students >= 5,
+    intensive_course: course.week_length >= 5,
+
+    // Пользовательские опции
+    supplementary: document.getElementById('opt-supplementary')?.checked || false,
+    personalized: document.getElementById('opt-personalized')?.checked || false,
+    excursions: document.getElementById('opt-excursions')?.checked || false,
+    assessment: document.getElementById('opt-assessment')?.checked || false,
+    interactive: document.getElementById('opt-interactive')?.checked || false
+  };
+
+  try {
+    const res = await fetch(`${API_URL}/orders?api_key=${API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(orderData)
+    });
+
+    if (!res.ok) throw new Error('Ошибка сервера');
+    const result = await res.json();
+
+    showNotification('Заявка успешно создана!', 'success');
+    bootstrap.Modal.getInstance(document.getElementById('orderModal')).hide();
+  } catch (err) {
+    console.error(err);
+    showNotification('Не удалось отправить заявку', 'danger');
+  }
+}
+
+
+function submitTutorRequest() {
+  const tutorId = document.getElementById('request-tutor-id').value;
+  const name = document.getElementById('request-name').value.trim();
+  const email = document.getElementById('request-email').value.trim();
+  const message = document.getElementById('request-message').value.trim();
+
+  // Простая валидация
+  if (!name || !email) {
+    showNotification('Имя и email обязательны', 'warning');
+    return;
+  }
+
+  // Проверка email
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    showNotification('Некорректный email', 'warning');
+    return;
+  }
+
+
+  showNotification('Запрос отправлен! Мы свяжемся с вами.', 'success');
+
+  // Закрываем модальное окно
+  const modal = bootstrap.Modal.getInstance(document.getElementById('tutorRequestModal'));
+  if (modal) modal.hide();
+}
